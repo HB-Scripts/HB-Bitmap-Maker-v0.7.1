@@ -9,8 +9,8 @@ Gdip_Startup()
 IfNotExist, % A_ScriptDir "\ProjectsFolder"
 	FileCreateDir, % A_ScriptDir "\ProjectsFolder"
 
-;~ if not A_IsAdmin
-	;~ Run *RunAs "%A_ScriptFullPath%"
+if not A_IsAdmin
+	Run *RunAs "%A_ScriptFullPath%"
 
 HB_BitmapMaker_v7.Setup()
 
@@ -853,6 +853,7 @@ class ProjectManagementClass extends FileManagementClass	{
 		cc.FunctionsArray := []
 		cc.SelectedFunction := ""
 		cc.ScriptElements := []
+		cc.SelectedSection := "Section 1"
 		
 	}
 	Add_Window( windowName , windowType , windowOptions , windowTitle , WindowDefaultsObjectString := "" , WindowFunctionParams := "" ){
@@ -910,13 +911,14 @@ class ProjectManagementClass extends FileManagementClass	{
 		}	
 		This._Write_WindowData()
 	}	
-	Add_CodeInsert( CodeInsertName , CodeInsertNotes , CodeInsertContents ){
+	Add_CodeInsert( CodeInsertName , CodeInsertNotes , CodeInsertContents , CodeInsertSection ){
 		local project := This.SelectedProject
 		local cc := This.Projects[ project ].CodeInserts[ CodeInsertName ] := {}
 		cc.CodeInsertName := CodeInsertName 
 		cc.CodeInsertNotes := CodeInsertNotes
 		cc.CodeInsertContents := CodeInsertContents
-		
+		cc.CodeInsertSection := CodeInsertSection
+		MsgBox, % cc.CodeInsertSection
 		cc.FolderPath 		:= This.ProjectDir "\" project "\CodeInserts\" CodeInsertName 
 		cc.NotesPath 		:= This.ProjectDir "\" project "\CodeInserts\" CodeInsertName "\CodeInsertNotes.txt"
 		cc.CodePath 		:= This.ProjectDir "\" project "\CodeInserts\" CodeInsertName "\CodeInsertCode.ahk"
@@ -1528,11 +1530,13 @@ class FileManagementClass extends ClassElementTabEvents	{
 			
 			FileRead, CodeInsertNotes , % Dir "\" fName "\CodeInsertNotes.txt"
 			FileRead, CodeInsertContents , % Dir "\" fName "\CodeInsertCode.ahk"
+			FileRead, CodeInsertSection , % Dir "\" fName "\CodeInsertSection.Txt"
 			;~ MsgBox, % CodeInsertContents
 			cc.Index := This.Projects[ project ].CodeInsertsArray.Length()
 			cc.CodeInsertName := fName
 			cc.CodeInsertNotes := CodeInsertNotes
 			cc.CodeInsertContents := CodeInsertContents
+			cc.CodeInsertSection := CodeInsertSection
 			
 			This.Projects[ project ].SelectedCodeInsert := cc.CodeInsertName
 		}
@@ -1623,10 +1627,13 @@ class FileManagementClass extends ClassElementTabEvents	{
 		;~ cc.FolderPath 		:= This.ProjectDir "\" project "\CodeInserts\" CodeInsertName 
 		notesPath 		:= This.ProjectDir "\" project "\CodeInserts\" cc.CodeInsertName "\CodeInsertNotes.txt"
 		codePath 		:= This.ProjectDir "\" project "\CodeInserts\" cc.CodeInsertName "\CodeInsertCode.ahk"
+		sectionPath 	:= This.ProjectDir "\" project "\CodeInserts\" cc.CodeInsertName "\CodeInsertSection.Txt"
 		FileDelete, % notesPath
 		FileDelete, % codePath
+		FileDelete, % sectionPath
 		FileAppend, % cc.CodeInsertNotes , % notesPath
 		FileAppend, % cc.CodeInsertContents , % codePath
+		FileAppend, % cc.CodeInsertSection , % sectionPath
 		;~ MsgBox, % "selected insert: " codeInsert "`nNotes: " cc.CodeInsertNotes
 		;~ This._Write_WindowFunctionCode()
 	}
@@ -1885,11 +1892,25 @@ class CodeInsertTabEvents extends BitmapElementTabEvents	{
 				sIndex := A_Index
 		}
 		;~ MsgBox, % "length: " ciList.Length() "`nitem 1" ciList[ 1 ]
-		This.CodeInsertTab.SetControlList( This.CodeInsertTab.Controls.CodeInsertListbox , ciList , sIndex )
 		
+		;$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+		;$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+		;$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+		;~ This.CodeInsertTab.SetControlList( This.CodeInsertTab.Controls.CodeInsertListbox , ciList , sIndex )
+		
+		
+		
+		;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		This.CodeInsertTab.Set( This.CodeInsertTab.Controls.Param1Edit ,, cc.CodeInsertName )
 		This.CodeInsertTab.Set( This.CodeInsertTab.Controls.Param2Edit ,, cc.CodeInsertNotes )
 		This.CodeInsertTab.Set( This.CodeInsertTab.Controls.Param3Edit ,, cc.CodeInsertContents )
+		
+		This.Set_SelectedCodeInsert_Section()
+		;~ This.CodeInsertTab.Set( This.CodeInsertTab.Controls.SectionDDL , "Choose" , cc.CodeInsertSection )
+		This.CodeInsertTab.Set( This.CodeInsertTab.Controls.CodeInsertListbox , "Choose" , cc.CodeInsertName )
+		This.CodeInsertTab.Set( This.CodeInsertTab.Controls.SectionDDL , "Choose" , cc.CodeInsertSection )
 		;~ This.Set_ListViewControl_List()
 		;~ This.Set_WindowElements_ParamControls()
 		;~ sleep, 100
@@ -1899,7 +1920,11 @@ class CodeInsertTabEvents extends BitmapElementTabEvents	{
 		local project := This.SelectedProject
 		local cc := This.CodeInsertTab
 		This.Projects[ project ].SelectedCodeInsert := cc.Get( cc.Controls.CodeInsertListbox )
+		
+		This.Set_SelectedCodeInsert_Section()
+		
 		This.Update_Details_CodeInsertTab()
+		;~ This.Set_SelectedCodeInsert_Section()
 		;~ This.Update_Details_CodeInsertTab()
 	}
 	Submit_ParamEdit_Values(){
@@ -1912,6 +1937,7 @@ class CodeInsertTabEvents extends BitmapElementTabEvents	{
 		local name := StrReplace( This.CodeInsertTab.Get( This.CodeInsertTab.Controls[ "Param1Edit" ] ) , " " , "_" )
 		local notes := This.CodeInsertTab.Get( This.CodeInsertTab.Controls[ "Param2Edit" ] )
 		local contents := This.CodeInsertTab.Get( This.CodeInsertTab.Controls[ "Param3Edit" ] )	
+		local section := This.CodeInsertTab.Get( This.CodeInsertTab.Controls[ "SectionDDL" ] )	
 		local path := This.ProjectDir "\" project "\CodeInserts\" codeInsert "\"
 		;~ cc.CodeInsertName := This.CodeInsertTab.Get( This.CodeInsertTab.Controls[ "Param1Edit" ] )	
 		;~ cc.CodeInsertNotes := This.CodeInsertTab.Get( This.CodeInsertTab.Controls[ "Param2Edit" ] )	
@@ -1925,7 +1951,7 @@ class CodeInsertTabEvents extends BitmapElementTabEvents	{
 			This._Delete_CodeInsert()
 			This.Projects[ project ].SelectedCodeInsert := name
 			;~ This.Projects[ project ].CodeInserts.Remove( codeInsert )
-			This.Add_CodeInsert( name , notes , contents )
+			This.Add_CodeInsert( name , notes , contents , section )
 			This.Update_Details_CodeInsertTab()
 			;~ dd.CodeInsertName := name
 			;~ dd.CodeInsertNotes := notes
@@ -1934,6 +1960,7 @@ class CodeInsertTabEvents extends BitmapElementTabEvents	{
 		}
 		cc.CodeInsertNotes := notes
 		cc.CodeInsertContents := contents
+		cc.CodeInsertSection := section
 		
 		;~ MsgBox, % "name: " name
 		
@@ -1945,7 +1972,30 @@ class CodeInsertTabEvents extends BitmapElementTabEvents	{
 		;~ LV_Modify( This.WindowElementSlectedListViewRow ,, elementIndex , cc.ElementType , cc.Param1 , cc.Param2 , cc.Param3 , cc.Param4 , cc.Param5 , cc.Param6 , cc.Param7 , cc.Param8 , cc.Param9 , cc.Param10 , cc.Param11 )
 		;~ This._Write_WindowElement_To_ini( cc )	
 	}
-
+	Set_SelectedCodeInsert_Section(){
+		
+		local selected := This.CodeInsertTab.Get( This.CodeInsertTab.Controls.SectionNameDDL )
+		SoundBeep
+		;~ MsgBox, % selected
+		
+		project := This.SelectedProject
+		
+		CodeInserts := This.Projects[ project ].CodeInserts
+		outList := "|"
+		for k , v in CodeInserts	{
+			
+			cc := CodeInserts[ k ]
+			if( cc.CodeInsertSection = selected ){
+				outList .= cc.CodeInsertName "|"
+			}else if( selected = "All" ){
+				outList .= cc.CodeInsertName "|"
+			}
+			
+			
+		}
+		This.CodeInsertTab.Set( This.CodeInsertTab.Controls.CodeInsertListbox ,, outList )
+		;~ This.Update_Details_CodeInsertTab()
+	}
 }
 ;|<<<___>>>||<<<___>>>||<<<___>>>||<<<___>>>||<<<___>>>|
 class BitmapElementTabEvents extends WindowElementTabEvents	{
@@ -3096,11 +3146,22 @@ class NewCodeInsertWindowClass	extends PopUpWindow_Addons {
 		;~ cc := This.NewProjectWindow := New PopUpWindow_V3( "-DPIScale -Caption +Owner" HB_BitmapMaker_v7.MainWindow.Hwnd , "New Project Window" ,, obj )
 		cc := This.NewCodeInsertWindow := New PopUpWindow_V3( "-DPIScale -Caption +Border +Owner" HB_BitmapMaker_v7.MainWindow.Hwnd , "New CodeInsert Window" ,, obj )
 		
+		
+		
+		
 		cc.Add( "Text" , "xm ym w580 h25 Center Border 0x200" , "New Code Insert" , "MoveWindowButton" , This.PostMoveWindow.Bind( This , "NewCodeInsertWindow" ) )
 		cc.SetMargin( cc.MarginX , 10 )
 		cc.Add( "Text" , "x+m yp w25 hp Center Border 0x200" , "X" ,, This.PostCloseWindow.Bind( This , "NewCodeInsertWindow" ) )
 		cc.SetMargin( 10 , 15 )
 		;~ cc.SetFont( ,, "00FFFF" )
+		
+		
+		
+		cc.Add( "Text" , "xm y+m r3 w120 Center 0x200 Border" , "Section Name" , "SectionNameText" )
+		cc.Add( "DDL" , "xp y+m wp" , "Section 1||Section 2|Section 3|" , "SectionNameDDL" )
+		
+		
+		
 		cc.SetFont( ,, "00FF00" )
 		cc.Add( "Text" , "xm y+m h25 w120  0x200" , "Code Insert Name: " )
 		cc.Add( "Edit" , "x+10 w470 r1 " , "" , "CodeInsertNameEdit"  )
@@ -3118,6 +3179,9 @@ class NewCodeInsertWindowClass	extends PopUpWindow_Addons {
 		cc.SetFont( ,, "FFFFFF" )
 		cc.Add( "Text" , "xm y+m w300 h30 Center 0x200 Border" , "Add Code Insert" , "AddCodeInsertButton" , This._AddCodeInsert.Bind( This ) )
 		cc.Add( "Text" , "x+m yp w300 h30 Center 0x200 Border" , "Cancel" , "CancelButton" , This.PostCloseWindow.Bind( This , "NewCodeInsertWindow" ) )
+		
+		
+		
 		cc.Show( "AutoSize" )
 		
 	}
@@ -3126,6 +3190,7 @@ class NewCodeInsertWindowClass	extends PopUpWindow_Addons {
 		local CodeInsertName := cc.Get( cc.Controls.CodeInsertNameEdit )
 		local CodeInsertNotes := cc.Get( cc.Controls.CodeInsertNotesEdit )
 		local CodeInsertContents := cc.Get( cc.Controls.CodeInsertContentsEdit )
+		local CodeInsertSection := cc.Get( cc.Controls.SectionNameDDL )
 		
 		
 		if( CodeInsertName = "" ){
@@ -3140,7 +3205,7 @@ class NewCodeInsertWindowClass	extends PopUpWindow_Addons {
 			MsgBox,, Window Name Taken , That name is already taken.
 			return
 		}
-		HB_BitmapMaker_v7.Add_CodeInsert( CodeInsertName  , CodeInsertNotes , CodeInsertContents )
+		HB_BitmapMaker_v7.Add_CodeInsert( CodeInsertName  , CodeInsertNotes , CodeInsertContents , CodeInsertSection )
 		
 		This.NewCodeInsertWindow := ""
 	}
@@ -3226,7 +3291,6 @@ class NewFunctionWindowClass	extends PopUpWindow_Addons {
 	}
 	
 }
-
 
 ;;|<<<---(0)_(0)--->>>||<<<---(0)_(0)--->>>||<<<---(0)_(0)--->>>|;|<<<---(0)_(0)--->>>||<<<---(0)_(0)--->>>||<<<---(0)_(0)--->>>|
 class PopUpWindow_V3 extends PopUpWindow_LayeredWindowDrawingFunctions	{	;class lvl = 6
@@ -7755,7 +7819,6 @@ class MonitorClass	{
 		return This.CurrentMonitor
 	}
 }
-
 
 
 
